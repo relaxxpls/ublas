@@ -1,12 +1,6 @@
 //****************************//   RELAXXPLS   //****************************//
 #include <bits/stdc++.h>
 using namespace std;
-// #include <vector>
-// #include <utility>
-// #include <iostream>
-// #include <algorithm>
-// #include <cassert>
-// #include <iterator>
 
 /******************************** Debug Begin ********************************/
 #define ts to_string
@@ -45,37 +39,110 @@ public:
     matrix(size_t r, size_t c, T x) : R(r), C(c) {
         M.assign(R, std::vector<T>(C, x));
     }
-    // ~matrix();
 
     bool empty() const {
         return R*C == 0;
     }
-
     std::pair<size_t, size_t> size() {
         return std::make_pair(R, C);
     }
+    matrix t() {
+        matrix res(C, R, 0);
+        for(size_t r=0; r<R; r++) {
+            for(size_t c=0; c<C; c++) {
+                res(c, r) += M[r][c];
+            }
+        }
+        return res;
+    }
 
-    matrix operator+=(const matrix &rhs);
-    matrix operator-=(const matrix &rhs);
-    matrix operator*=(const matrix &rhs);
+    matrix operator+=(const matrix &rhs) {
+        assert(R == rhs.R && C == rhs.C);
+        for(size_t r=0; r<R; r++) {
+            for(size_t c=0; c<C; c++) {
+                M[r][c] += rhs(r, c);
+            }
+        }
+        return *this;
+    }
+    matrix operator-=(const matrix &rhs) {
+        assert(R == rhs.R && C == rhs.C);
+        for(size_t r=0; r<R; r++) {
+            for(size_t c=0; c<C; c++) {
+                M[r][c] -= rhs(r, c);
+            }
+        }
+        return *this;
+    }
+    matrix operator*=(const matrix &rhs) {
+        assert(C == rhs.R);
+        matrix res(R, rhs.C, 0);
+        for(size_t r=0; r<res.R; r++) {
+            for(size_t c=0; c<res.C; c++) {
+                for(size_t i=0; i<C; i++) {
+                    res(r, c) += M[r][i] * rhs(i, c);
+                }
+            }
+        }
+        return res;
+    }
+    matrix operator+(const matrix &rhs) const {
+        return matrix(*this) += rhs;
+    }
+    matrix operator-(const matrix &rhs) const {
+        return matrix(*this) -= rhs;
+    }
+    matrix operator*(const matrix &rhs) const {
+        return matrix(*this) *= rhs;
+    }
+    matrix operator*=(const T &rhs) {
+        for(size_t r=0; r<R; r++) {
+            for(size_t c=0; c<C; c++) {
+                M[r][c] *= rhs;
+            }
+        }
+        return *this;
+    }
+    matrix operator*(const T &rhs) const {
+        return matrix(*this) *= rhs;
+    }
+    matrix operator-() const {
+        return matrix(R, C, 0) - *this;
+    }
+
+    bool operator==(const matrix &rhs) const {
+        if(R != rhs.R || C != rhs.C) return false;
+        for(size_t r=0; r<R; r++) {
+            for(size_t c=0; c<C; c++) {
+                if(M[r][c] != rhs(r, c)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    bool operator!=(const matrix &rhs) const {
+        return !(*this == rhs);
+    }
+
     matrix operator+=(const T &rhs);
     matrix operator-=(const T &rhs);
-    matrix operator*=(const T &rhs);
-    matrix operator+(const matrix &rhs) const;
-    matrix operator-(const matrix &rhs) const;
-    matrix operator*(const matrix &rhs) const;
     matrix operator+(const T &rhs) const;
     matrix operator-(const T &rhs) const;
-    matrix operator*(const T &rhs) const;
-    matrix operator-();
-    matrix operator+();
-    bool operator==(const T &rhs) const;
-    bool operator!=(const T &rhs) const;
 
+    // Element Numbering (Column  Major):
+    //    C 0  1  2  3
+    //  R
+    //  0   0  3  6  9
+    //  1   1  4  7 10
+    //  2   2  5  8 11
     T& operator[](size_t i) {
         return M[i % R][i / R];
     }
     T& operator()(size_t r, size_t c) {
+        return M[r][c];
+    }
+    T operator()(size_t r, size_t c) const {
         return M[r][c];
     }
     matrix operator()(const range &row_range, const range &col_range) const {
@@ -88,9 +155,8 @@ public:
         return res;
     }
 
-    template <typename TT>
-    friend matrix<TT> pow(matrix<TT> m, int n);
-
+    template <typename U>
+    friend matrix<U> pow(matrix<U> m, int n);
 
 private:
     size_t R, C;
@@ -124,22 +190,34 @@ matrix<T> zeros(size_t r, size_t c) {
 template<typename T>
 matrix<T> eye(size_t r) {
     matrix<T> res(r, r, 0);
-    for(int i=0; i<r; i++) {
+    for(size_t i=0; i<r; i++) {
         res(i, i) = 1;
+    }
+    return res;
+}
+
+template<typename T>
+matrix<T> pow(matrix<T> m, int n) {
+    assert(m.R == m.C && n >= 0);
+    if(n == 0) {
+        return eye<T>(m.R);
+    }
+    matrix<T> res = m;
+    for(int i=n; i>0; i>>=1) {
+        res = (i&1) ? res*m : res;
+        m *= m;
     }
     return res;
 }
 
 //============================//   Code End   //=============================//
 int main() {
-    matrix<int> M(2, 9, 1);
-    M[7] = 7;
-    M(0, 1) = 2;
-    std::cout << M << std::endl;
-    matrix<int> M2 = M(range(1, 1), range(2, 6));
-    std::cout << M2 << std::endl;
-
-    return 0;
+    matrix<int> B(2, 2, 2);
+    matrix<int> M = pow(B, 3);
+    M(1, 0) = 1;
+    std::cout << -M.t() << std::endl;
+    matrix<int> A = zeros<int>(10,10), C = eye<int>(10);
+    deb(A==C);
 }
 
 // #pragma once
