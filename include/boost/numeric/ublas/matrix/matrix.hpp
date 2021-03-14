@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iterator>
+#include <cmath>
 
 /**
  *  Operations:
@@ -113,19 +114,26 @@ public:
         return !(*this == rhs);
     }
 
-    // Element Numbering (Column  Major):
-    //    C 0  1  2  3
+    matrix operator+=(const T &rhs);
+    matrix operator-=(const T &rhs);
+    matrix operator+(const T &rhs) const;
+    matrix operator-(const T &rhs) const;
+
+    // Element Numbering (0 based, Column  Major):
+    //    C 0  1  2   3
     //  R
-    //  0   0  3  6  9
-    //  1   1  4  7 10
-    //  2   2  5  8 11
+    //  0   0  3  6   9
+    //  1   1  4  7  10
+    //  2   2  5  8  11
     T& operator[](size_t i) {
         return M[i % R][i / R];
     }
     T& operator()(size_t r, size_t c) {
+        assert(0 <= r && r < R && 0 <= c && c < C);
         return M[r][c];
     }
     T operator()(size_t r, size_t c) const {
+        assert(0 <= r && r < R && 0 <= c && c < C);
         return M[r][c];
     }
     matrix operator()(const range &row_range, const range &col_range) const {
@@ -141,21 +149,31 @@ public:
     template <typename U>
     friend matrix<U> pow(matrix<U> m, int n);
 
+    // To permit: 5*M, without this only M*5 is permitted
+    template <typename U>
+    friend matrix<U> operator*(const U &lhs, const matrix<U> &rhs);
+
 private:
     size_t R, C;
     std::vector<std::vector<T>> M;
 };
 
-template <typename TT>
-std::ostream& operator<<(std::ostream &cout, matrix<TT> m) {
-    std::pair<size_t, size_t> p = m.size();
-    for(size_t r = 0; r < p.first; r++) {
+template <typename U>
+matrix<U> operator*(const U &lhs, const matrix<U> &rhs) {
+    return rhs * lhs;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream &cout, matrix<T> m) {
+    size_t R = m.size().first, C = m.size().second;
+    for(size_t r = 0; r < R; r++) {
         std::cout << "[";
-        for(size_t c = 0; c < p.second; c++) {
+        for(size_t c = 0; c < C; c++) {
             cout << m(r, c);
-            if (c+1 != p.second) {
+            if (c+1 != C) {
                 cout << " ";
-            } else {
+            }
+            else {
                 cout << "]" << std::endl;
             }
         }
@@ -189,6 +207,48 @@ matrix<T> pow(matrix<T> m, int n) {
     for(int i=n; i>0; i>>=1) {
         res = (i&1) ? res*m : res;
         m *= m;
+    }
+    return res;
+}
+
+// Norm of matrix m
+// Options available currently: L1, LF, Linf
+// L1: Manhatten Norm
+// L2: Eucledian Norm (under development)
+// LF: Frobenius Norm
+// Linf: Maximum Norm
+template<typename T>
+double norm(matrix<T> m, std::string NORM = "LF") {
+    double res = 0;
+    size_t R = m.size().first, C = m.size().second;
+    if (NORM == "L1") {
+        for(size_t c = 0; c < C; c++) {
+            double cur = 0;
+            for(size_t r = 0; r < R; r++) {
+                res += abs(m(r, c));
+            }
+            res = std::max(res, cur);
+        }
+    }
+    else if (NORM == "LF"){
+        for(size_t r = 0; r < R; r++) {
+            for(size_t c = 0; c < C; c++) {
+                res += m(r, c) * m(r, c);
+            }
+        }
+        res = std::sqrt(res);
+    }
+    else if (NORM == "Linf") {
+        for(size_t r = 0; r < R; r++) {
+            double cur = 0;
+            for(size_t c = 0; c < C; c++) {
+                res += abs(m(r, c));
+            }
+            res = std::max(res, cur);
+        }
+    }
+    else {
+        assert(false);
     }
     return res;
 }

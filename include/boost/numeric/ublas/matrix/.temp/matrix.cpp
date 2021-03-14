@@ -25,13 +25,15 @@ void _deb() { cerr<<endl; }
 template<typename T, typename... U> void _deb(const T& t, const U&... u) {
     cerr<<ts(t); if(sizeof...(u)) cout<<", "; _deb(u...); }
 /********************************* Debug Eng *********************************/
-
 struct range {
     size_t l, r, len;
     range(size_t l, size_t r) : l(l), r(r), len(r-l+1) {
         assert(0<=l && l<=r);
     }
 };
+string ts(range r) {
+    return "{"+ts(r.l)+","+ts(r.r)+','+ts(r.len)+"}";
+}
 
 template <typename T>
 class matrix {
@@ -130,19 +132,21 @@ public:
     matrix operator+(const T &rhs) const;
     matrix operator-(const T &rhs) const;
 
-    // Element Numbering (Column  Major):
-    //    C 0  1  2  3
+    // Element Numbering (0 based, Column  Major):
+    //    C 0  1  2   3
     //  R
-    //  0   0  3  6  9
-    //  1   1  4  7 10
-    //  2   2  5  8 11
+    //  0   0  3  6   9
+    //  1   1  4  7  10
+    //  2   2  5  8  11
     T& operator[](size_t i) {
         return M[i % R][i / R];
     }
     T& operator()(size_t r, size_t c) {
+        assert(0 <= r && r < R && 0 <= c && c < C);
         return M[r][c];
     }
     T operator()(size_t r, size_t c) const {
+        assert(0 <= r && r < R && 0 <= c && c < C);
         return M[r][c];
     }
     matrix operator()(const range &row_range, const range &col_range) const {
@@ -158,21 +162,31 @@ public:
     template <typename U>
     friend matrix<U> pow(matrix<U> m, int n);
 
+    // To permit: 5*M, without this only M*5 is permitted
+    template <typename U>
+    friend matrix<U> operator*(const U &lhs, const matrix<U> &rhs);
+
 private:
     size_t R, C;
     std::vector<std::vector<T>> M;
 };
 
-template <typename TT>
-std::ostream& operator<<(std::ostream &cout, matrix<TT> m) {
-    std::pair<size_t, size_t> p = m.size();
-    for(size_t r = 0; r < p.first; r++) {
+template <typename U>
+matrix<U> operator*(const U &lhs, const matrix<U> &rhs) {
+    return rhs * lhs;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream &cout, matrix<T> m) {
+    size_t R = m.size().first, C = m.size().second;
+    for(size_t r = 0; r < R; r++) {
         std::cout << "[";
-        for(size_t c = 0; c < p.second; c++) {
+        for(size_t c = 0; c < C; c++) {
             cout << m(r, c);
-            if (c+1 != p.second) {
+            if (c+1 != C) {
                 cout << " ";
-            } else {
+            }
+            else {
                 cout << "]" << std::endl;
             }
         }
@@ -210,123 +224,62 @@ matrix<T> pow(matrix<T> m, int n) {
     return res;
 }
 
-//============================//   Code End   //=============================//
-int main() {
-    matrix<int> B(2, 2, 2);
-    matrix<int> M = pow(B, 3);
-    M(1, 0) = 1;
-    std::cout << -M.t() << std::endl;
-    matrix<int> A = zeros<int>(10,10), C = eye<int>(10);
-    deb(A==C);
+// Norm of matrix m
+// Options available:
+// L1: Manhatten Norm
+// L2: Eucledian Norm (under development)
+// LF: Frobenius Norm
+// Linf: Maximum Norm
+template<typename T>
+double norm(matrix<T> m, string NORM = "LF") {
+    double res = 0;
+    size_t R = m.size().first, C = m.size().second;
+    if (NORM == "L1") {
+        for(size_t c = 0; c < C; c++) {
+            double cur = 0;
+            for(size_t r = 0; r < R; r++) {
+                res += abs(m(r, c));
+            }
+            res = max(res, cur);
+        }
+    }
+    else if (NORM == "L2") {
+
+    }
+    else if (NORM == "LF"){
+        for(size_t r = 0; r < R; r++) {
+            for(size_t c = 0; c < C; c++) {
+                res += m(r, c) * m(r, c);
+            }
+        }
+        res = sqrt(res);
+    }
+    else if (NORM == "Linf") {
+        for(size_t r = 0; r < R; r++) {
+            double cur = 0;
+            for(size_t c = 0; c < C; c++) {
+                res += abs(m(r, c));
+            }
+            res = max(res, cur);
+        }
+    }
+    else {
+        assert(false);
+    }
+    return res;
 }
 
-// #pragma once
-// #include <vector>
-// #include <utility>
-// #include <iostream>
-// #include <algorithm>
-// #include <cassert>
-// #include <iterator>
-// #include "matrix.hpp"
+//============================//   Code End   //=============================//
 
-// namespace boost { namespace numeric { namespace ublas {
+int main() {
+    matrix<int> B(3, 3, 2);
+    matrix<int> M = pow(B, 3);
+    M(1, 0) = 1;
+    M(2, 2) = 7;
+    M(1, 2) = -2;
+    matrix<int> X = -2*M.t();
+    std::cout << X << std::endl;
 
-// template<typename T>
-// class matrix {
-// public:
-// 	typedef int size_type;
-// 	typedef T value_type;
-
-// 	matrix(size_type r, size_type c, T x) : R(r), C(c) {
-// 		M.assign(R, std::vector<T>(C, x));
-// 	}
-// 	~matrix() {}
-
-// 	bool empty() {
-// 		return R*C == 0;
-// 	}
-
-// 	matrix operator+=(const matrix &rhs) {
-// 		assert(R==rhs.R && C==rhs.C);
-//         for(size_type r=0; r<R; r++) {
-//         	for(size_type c=0; c<C; c++) {
-//         		M[r][c] += rhs.M[r][c];
-//         	}
-//         }
-//         return *this;
-// 	}
-//     matrix operator-=(const matrix &rhs) {
-//     	assert(R==rhs.R && C==rhs.C);
-//         for(size_type r=0; r<R; r++) {
-//         	for(size_type c=0; c<C; c++) {
-//         		M[r][c] -= rhs.M[r][c];
-//         	}
-//         }
-//         return *this;
-//     }
-//     matrix operator*=(const matrix &rhs) {
-//     	assert(C == rhs.R);
-//         matrix res(R, rhs.C, 0);
-//         for(size_type r=0; r<res.R; r++) {
-//         	for(size_type c=0; c<res.C; c++) {
-//             	for(size_type i=0; i<C; i++) {
-//             		res.M[r][c] += M[r][i] * rhs.M[i][c];
-//             	}
-//         	}
-//         }
-//         return res;
-//     }
-//     matrix operator*=(const T &rhs) {
-//         for(size_type r=0; r<R; r++) {
-//         	for(size_type c=0; c<C; c++) {
-//         		M[r][c] *= rhs;
-//         	}
-//         }
-//         return *this;
-//     }
-//     matrix operator-() {
-//     	return matrix(R, C, 0) - *this;
-//     }
-//     matrix operator+() {
-//     	return *this;
-//     }
-
-//     friend matrix operator+(matrix a, const matrix &b) {
-//         return a += b;
-//     }
-//     friend matrix operator-(matrix a, const matrix &b) {
-//         return a -= b;
-// 	}
-//     friend matrix operator*(matrix a, const matrix &b) {
-//         return a *= b;
-//     }
-
-//     // friend matrix pow(matrix m, int n) {
-//     //     matrix res = eye(m.R);
-//     //     for(int i=n; i>0; i>>=1) {
-//     //     	res = (i&1) ? res*m : res;
-//     //     	m *= m;
-//     //     }
-//     //     return res; }
-// private:
-// 	size_type R, C;
-// 	std::vector<std::vector<value_type>> M;
-// };
-
-// // Zero/null matrix of size r*c
-// template<typename T>
-// matrix<T> zeros(size_t r, size_t c) {
-// 	return matrix<T>(r, c, 0);
-// }
-
-// // Identity matrix of size r*r
-// template<typename T>
-// matrix<T> eye(size_t r) {
-// 	matrix<T> res(r, r, 0);
-// 	for(int i=0; i<r; i++) {
-// 		res(i, i) = 1;
-// 	}
-// 	return res;
-// }
-
-// }}} // Namespace end
+    matrix<int> y = X({1, 2}, {0, 2});
+    std::cout << y << std::endl;
+}
